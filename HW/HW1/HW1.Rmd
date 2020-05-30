@@ -1,0 +1,75 @@
+---
+title: "STAT423-HW1"
+author: "Nan Tang"
+date: "1/17/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1-a
+
+```{r message=FALSE, warning=FALSE}
+library(alr4)
+age_dt <- unique(wblake$Age)
+leng_mean_dt <- numeric(length(age_dt))
+for (i in age_dt) {
+  leng_mean_dt[i] <- mean(wblake$Length[wblake$Age == i])
+}
+age_leng_mean_df <- data.frame(age_dt, leng_mean_dt)
+plot(age_leng_mean_df, pch=16, ylab='Mean Length', xlab='Age', main='Age vs Mean of Length')
+```
+
+Base on the scatterplot, there is no strong evidence suggesting that linear relationshop exists between mean length for each age and age. 
+
+## Question 1-b
+
+
+```{r question-1-b}
+leng_sd_dt <- numeric(length(age_dt))
+for (i in age_dt) {
+  leng_sd_dt[i] <- sd(wblake$Length[wblake$Age == i])
+}
+age_leng_sd_df <- data.frame(age_dt, leng_sd_dt)
+plot(age_leng_sd_df, pch=16, ylab='SD of Length', xlab='Age', main='Age vs SD of Length')
+```
+
+The variance of standard deviation of length does not seem constant within ages. 
+
+## Question 1-c
+
+```{r question-1-c}
+lm1 <- lm(wblake$Length~wblake$Scale)
+
+plot(wblake$Scale, wblake$Length, pch=16, cex=0.5,
+     xlab='Scale', ylab='Length' )
+abline(lm1, col=2)
+
+summary(lm1)
+
+```
+
+A simple linear regression line fits the data very well when scale is low, however, when scale is high, the residual increases. 
+
+Base on the summary of linear regression, P-value of both intercept and coefficient of scale are much less than zero, indicating that both beta zero and beta one are unlikely to be zero. 
+
+
+## Question 1-d
+
+``` {r question-1-d}
+resid1 <- summary(lm1)$residual
+hist(resid1, xlab='Residuals', main='Histogram of Residuals', xlim=c(-100, 100))
+qqnorm(resid1)
+plot(lm(wblake$Length~wblake$Scale), which = 1)
+```
+
+The histogram shows the distribution of residuals is approximately normal. 
+The linear pattern in qqplot also implies that the normality assumption of error is not violated. 
+The pattern that shown in TA plot does not have a particular shape, indicating that normality assumption is not violate as well. 
+
+
+
+
+

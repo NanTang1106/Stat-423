@@ -1,0 +1,222 @@
+---
+title: "STAT 423/504 - Homework 4"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+# 1
+```{r}
+library(glmnet)
+setwd("~/Desktop/WorshipTheToad/2020WI/Stat 504/")
+car = readRDS("car.RDS")
+car$purchase =  as.factor(car$purchase)
+```
+
+### (a)
+```{r}
+fit.raw = glm(purchase ~ income + age, data = car, family=binomial)
+summary(fit.raw)
+```
+According to the table above, the equation we get is \\
+$P(Purchase) = \frac{1}{1+e^{-\eta}}$, where $\eta = -4.73 +0.07 * income + 0.59 * age$.
+
+### (b)
+```{r}
+exp(fit.raw$coefficients['income'])
+exp(fit.raw$coefficients['age'])
+```
+
+### (c)
+```{r}
+new = data.frame(income=50, age=3)
+predict(fit.raw, new, type='response')
+```
+The estimated probability is 0.6090245.
+
+### (d)
+```{r}
+par(mfrow=c(1,2))
+plot(fit.raw, which=c(4,5))
+```
+Threfore, there is no points with large Cook's distance.
+### (e)
+The p-value we have for $age$ is 0.1249, which is greater than 5%. Therefore, we say that the predictor $age$ is not significnt at the 5% level.
+
+### (f)
+```{r}
+fit.all = glm(purchase ~ income + age + income:age, data = car, family=binomial)
+anova(fit.raw, fit.all, test='Chisq')
+```
+Since the p-value we have is 0.2569 > 0.05, we say that there is not a non-negligible interaction between $income$ and $age$.
+
+# 2
+```{r}
+no.yes <- c("No", "Yes")
+smoking <- gl(2,1,7, no.yes)
+obesity <- gl(2,2,7, no.yes)
+snoring <- gl(2,4,7, no.yes)
+n.total <- c(60, 17, 8, 187, 85, 51, 23)
+n.hyper <- c(5, 2, 1, 35, 13, 15, 8)
+```
+
+### (a)
+```{r}
+hyperention = data.frame("Yes"=n.hyper, "No" = n.total - n.hyper)
+hyperention
+```
+
+### (b)
+```{r}
+fit.full = glm(n.hyper / n.total ~ smoking + obesity + snoring, family=binomial, weight = n.total)
+fit.full
+pchisq(fit.full$null.deviance - fit.full$deviance, df= 3, lower.tail = F)
+```
+
+### (c)
+```{r}
+drop1(fit.full, test='LRT')
+```
+Therefore, $snoring$ is significant at 5% level.
+
+### (d)
+I will choose to drop smoking first becasue it has the largest p-value above.
+```{r}
+fit.two = glm(n.hyper / n.total ~ obesity + snoring, family=binomial, weight = n.total)
+anova(fit.two, fit.full, test='LRT')
+```
+Since we cannot reject the null hypothesis at 5% level, we remove the predictor $smokeing$ and continue.
+```{r}
+fit.one = glm(n.hyper / n.total ~ snoring, family=binomial, weight = n.total)
+anova(fit.one, fit.two, test='LRT')
+```
+Note that the p-value is below 0.05, and we reject the null hypothesis. Therefore, I will choose the model with predictors $snoring$ and $obesity$.
+
+### (e)
+```{r}
+data.frame('fitted proportion'=fit.two$fitted.values, 'true proportion'=n.hyper / n.total, 'fitted count '=fit.two$fitted.values*n.total, 'fitted count '= round(fit.two$fitted.values*n.total), 'true proportion'=n.hyper)
+```
+We realize that the rounded fitted count is actually quite precise.
+
+# 3
+```{r}
+library(gss)
+data(ozone, package='gss')
+d.ozone.e = ozone
+d.ozone.e$logupo3 = log(d.ozone.e$upo3)
+d.ozone.e = d.ozone.e[-92,]
+require(sfsmisc)
+ff <- wrapFormula(logupo3~., data=d.ozone.e, wrapString="poly(*,degree=3)")
+ff <- update(ff, logupo3 ~ .^3)
+mm <- model.matrix(ff, data=d.ozone.e)
+require(glmnet)
+ridge <- glmnet(mm, y=scale(d.ozone.e$logupo3, scale=F), alpha=0)
+lasso <- glmnet(mm, y=scale(d.ozone.e$logupo3, scale=F), alpha=1)
+elnet <- glmnet(mm, y=scale(d.ozone.e$logupo3, scale=F), alpha=.5)
+## For plotting the traces:
+par(mfrow=c(1,3))
+plot(ridge, xvar="lambda", main="Ridge")
+plot(lasso, xvar="lambda", main="Lasso")
+plot(elnet, xvar="lambda", main='Elastic Net')
+```
+The coefficients in Ridge regression shrinks to 0 almost monotonically as lambda increases. On the contrary, some coefficients would increase in maginitude as lambda increases for a while in Lasso and Elastic Net. However, all coefficients would finally to shrink to 0 when lambda is large enough.
+
+```{r}
+set.seed(1)
+cv.eln = cv.glmnet(mm, y=scale(d.ozone.e$logupo3, scale=F), alpha = 0.5, nfolds=10)
+plot(cv.eln)
+```
+It seemed that $\lambda = exp(-3.8)= 0.022$ would be optimal.
+
+
+# 4
+### (a)
+```{r}
+load("CustomerWinBack.rda")
+cwb$gender = as.factor(cwb$gender)
+fit.full = lm(duration~., data = cwb)
+par(mfrow=c(2,2))
+plot(fit.full, which=c(1,2,4,5))
+```
+According to the plots above, there seem to be no significant outliers that could influence the whole fit. Also, the zero-mean assumption, normality assumption and constant variacne assumption seemed to hold.
+
+### (b)
+```{r}
+step(fit.full, dir="both", k=2)
+```
+Therefore, the optimal model is $duration ~ offer + lapse + price + gender$. And its summary is given below.
+```{r}
+summary(lm(formula = duration ~ offer + lapse + price + gender, data = cwb))
+```
+
+### (c)
+```{r}
+step(fit.full, dir="both", k=log(nrow(cwb)))
+```
+Therefore, the optimal model is $duration ~ offer + lapse + price + gender$. It is the same as the one chosen by BIC criteria. Its summary has been provided above.
+
+### (d)
+```{r}
+## Lasso does not work with factor variables
+xx  <- model.matrix(duration~0+., cwb)[,-4]
+yy  <- cwb$duration
+set.seed(1)
+ridge.cv.eln <- cv.glmnet(xx, yy, nfolds = 5, alpha=0)
+plot(ridge.cv.eln)
+ridge.cv.eln
+ridge.opt_lam = ridge.cv.eln$lambda.1se
+glmnet(xx, yy, alpha=0, lambda=opt_lam)
+```
+So the optimal value of lambda is 390.6, and all parameters are said to be nonzero.
+
+
+### (e)
+```{r}
+set.seed(1)
+lasso.cv.eln <- cv.glmnet(xx, yy, nfolds = 5, alpha=1)
+plot(lasso.cv.eln)
+lasso.cv.eln
+lasso.opt_lam = lasso.cv.eln$lambda.1se
+coef(glmnet(xx, yy, alpha=0, lambda=opt_lam))
+```
+
+### (f)
+```{r}
+## cross validation preparation
+pre.ols   <- c()
+pre.aic   <- c()
+pre.bic   <- c()
+pre.rr <- c()
+pre.las <- c()
+folds      <- 5
+sb         <- round(seq(0,nrow(cwb),length=(folds+1)))
+
+for (i in 1:folds){
+  ## define training and test datasets
+  test    <- (sb[((folds+1)-i)]+1):(sb[((folds+2)-i)])
+  train   <- (1:nrow(cwb))[-test]
+  
+  ## fit models
+  fit.ols <- lm(duration ~ ., data=cwb[train,])
+  fit.aic <- lm(duration ~ offer + lapse + price + gender, data=cwb[train,])
+  fit.bic <- lm(duration ~ offer + lapse + price + gender, data=cwb[train,])
+  xx      <- model.matrix(duration~0+., cwb[train,])[,-4]
+  yy      <- cwb$duration[train]
+  
+  fit.rr  <- glmnet(xx,yy, lambda = ridge.opt_lam, alpha = 0)
+  fit.las <- glmnet(xx,yy, lambda = lasso.opt_lam, alpha = 1)
+  
+  pre.ols[test] <- predict(fit.ols, newdata=cwb[test,])
+  pre.aic[test] <- predict(fit.aic, newdata=cwb[test,])
+  pre.bic[test] <- predict(fit.bic, newdata=cwb[test,])
+  pre.rr[test]  <- model.matrix(duration~., cwb[test,])%*%as.numeric(coef(fit.rr))
+  pre.las[test] <- model.matrix(duration~., cwb[test,])%*%as.numeric(coef(fit.las))
+}
+
+mean((cwb$duration-pre.ols)^2)
+mean((cwb$duration-pre.aic)^2)
+mean((cwb$duration-pre.bic)^2)
+mean((cwb$duration-pre.rr)^2)
+mean((cwb$duration-pre.las)^2)
+```
+
+
